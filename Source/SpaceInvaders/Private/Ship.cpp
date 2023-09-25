@@ -1,5 +1,8 @@
 #include "Ship.h"
 
+#include "EnhancedInputComponent.h"
+#include "EnhancedInputSubsystems.h"
+
 #pragma region CONSTRUCTORS
 // Sets default values
 AShip::AShip()
@@ -29,23 +32,49 @@ void AShip::Tick(float DeltaTime)
 // Called to bind functionality to input
 void AShip::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
-	Super::SetupPlayerInputComponent(PlayerInputComponent);
+    Super::SetupPlayerInputComponent(PlayerInputComponent);
 
-	PlayerInputComponent->BindAxis(moveHorKey, this, &AShip::Move);
+    SetupInputMapping();
+    SetupInputActions(PlayerInputComponent);
 }
 #pragma endregion
 
 #pragma region PRIVATE_METHODS
-void AShip::Move(float axisValue)
+void AShip::Move(const FInputActionValue& value)
 {
-    if ((Controller != nullptr) && (axisValue != 0.0f))
+    if ((Controller != nullptr))
     {
-        const FRotator Rotation = Controller->GetControlRotation();
-        const FRotator YawRotation(0, Rotation.Yaw, 0);
+        const FVector2D moveValue = value.Get<FVector2D>();
+        const FRotator movementRotation(0, Controller->GetControlRotation().Yaw, 0);
 
-        const FVector Direction = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
+        if (moveValue.X != 0.f)
+        {
+            const FVector direction = movementRotation.RotateVector(FVector::RightVector);
 
-        AddMovementInput(Direction, axisValue);
+            AddMovementInput(direction, moveValue.X);
+        }
+    }
+}
+void AShip::SetupInputMapping()
+{
+    // Get the player controller
+    APlayerController* playerController = Cast<APlayerController>(Controller);
+
+    // Get the local player subsystem
+    UEnhancedInputLocalPlayerSubsystem* playerInputSubsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(playerController->GetLocalPlayer());
+    // Clear out existing mapping, and add our mapping
+    playerInputSubsystem->ClearAllMappings();
+    playerInputSubsystem->AddMappingContext(inputMapping, 0);
+}
+
+void AShip::SetupInputActions(UInputComponent* playerInputComponent)
+{
+    // Get the EnhancedInputComponent
+    UEnhancedInputComponent* enhancedInput = Cast<UEnhancedInputComponent>(playerInputComponent);
+    if (enhancedInput != nullptr)
+    {
+        // Bind the actions
+        enhancedInput->BindAction(inputActions->inputMove, ETriggerEvent::Triggered, this, &AShip::Move);
     }
 }
 #pragma endregion
